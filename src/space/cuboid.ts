@@ -383,4 +383,59 @@ export class Cuboid extends Polygon {
 	public clone(): Cuboid {
 		return new Cuboid(this.point1, this.point2);
 	}
+
+	/**
+	 * Divides the cuboid into a specified number of equal-sized smaller cuboids along each axis.
+	 * @param divisionsX Number of divisions along the X axis (must be ≥ 1)
+	 * @param divisionsY Number of divisions along the Y axis (must be ≥ 1)
+	 * @param divisionsZ Number of divisions along the Z axis (must be ≥ 1)
+	 * @returns An array of smaller Cuboids that together make up the original Cuboid
+	 * @throws Error if any division parameter is less than 1
+	 */
+	public divide(
+		divisionsX: number = 1,
+		divisionsY: number = 1,
+		divisionsZ: number = 1,
+	): Cuboid[] {
+		// Validate input parameters
+		if (divisionsX < 1 || divisionsY < 1 || divisionsZ < 1) {
+			throw new Error("Division parameters must be at least 1");
+		}
+
+		// If all divisions are 1, return a copy of this cuboid
+		if (divisionsX === 1 && divisionsY === 1 && divisionsZ === 1) {
+			return [this.clone()];
+		}
+
+		const result: Cuboid[] = [];
+
+		// Calculate size of each division
+		const size = this.getSize();
+		const divSizeX = size.x / divisionsX;
+		const divSizeY = size.y / divisionsY;
+		const divSizeZ = size.z / divisionsZ;
+
+		// Generate all smaller cuboids
+		for (let x = 0; x < divisionsX; x++) {
+			for (let y = 0; y < divisionsY; y++) {
+				for (let z = 0; z < divisionsZ; z++) {
+					const p1: Vector3 = {
+						x: this.point1.x + x * divSizeX,
+						y: this.point1.y + y * divSizeY,
+						z: this.point1.z + z * divSizeZ,
+					};
+
+					const p2: Vector3 = {
+						x: this.point1.x + (x + 1) * divSizeX,
+						y: this.point1.y + (y + 1) * divSizeY,
+						z: this.point1.z + (z + 1) * divSizeZ,
+					};
+
+					result.push(new Cuboid(p1, p2));
+				}
+			}
+		}
+
+		return result;
+	}
 }

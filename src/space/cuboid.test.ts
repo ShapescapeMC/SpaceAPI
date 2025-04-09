@@ -116,4 +116,103 @@ describe("Cuboid", () => {
 		expect(result).toBe(false);
 		expect(spyCallback).toHaveBeenCalled();
 	});
+
+	// Tests for the divide method
+	describe("divide method", () => {
+		it("should return a clone of the original cuboid when all divisions are 1", () => {
+			const divisions = cuboid.divide(1, 1, 1);
+			expect(divisions.length).toBe(1);
+			expect(divisions[0].point1).toEqual(cuboid.point1);
+			expect(divisions[0].point2).toEqual(cuboid.point2);
+			expect(divisions[0]).not.toBe(cuboid); // Should be a clone, not the same instance
+		});
+
+		it("should divide a cuboid into 8 equal parts (2x2x2)", () => {
+			const divisions = cuboid.divide(2, 2, 2);
+			expect(divisions.length).toBe(8);
+
+			// Each subdivided cuboid should have 1/8 of the original volume
+			const expectedVolume = cuboid.getVolume() / 8;
+			divisions.forEach((div) => {
+				expect(div.getVolume()).toBeCloseTo(expectedVolume);
+			});
+
+			// Check if we have all the expected subdivisions
+			const centers = divisions.map((div) => div.getCenter());
+
+			// Expected centers for a 2x2x2 division of a cuboid from (0,0,0) to (10,10,10)
+			const expectedCenters = [
+				{ x: 2.5, y: 2.5, z: 2.5 },
+				{ x: 2.5, y: 2.5, z: 7.5 },
+				{ x: 2.5, y: 7.5, z: 2.5 },
+				{ x: 2.5, y: 7.5, z: 7.5 },
+				{ x: 7.5, y: 2.5, z: 2.5 },
+				{ x: 7.5, y: 2.5, z: 7.5 },
+				{ x: 7.5, y: 7.5, z: 2.5 },
+				{ x: 7.5, y: 7.5, z: 7.5 },
+			];
+
+			// Verify all expected centers exist (allowing for small floating point differences)
+			expectedCenters.forEach((expected) => {
+				const found = centers.some(
+					(center) =>
+						Math.abs(center.x - expected.x) < 0.001 &&
+						Math.abs(center.y - expected.y) < 0.001 &&
+						Math.abs(center.z - expected.z) < 0.001,
+				);
+				expect(found).toBe(true);
+			});
+		});
+
+		it("should divide a cuboid along a single axis", () => {
+			// Divide only along x-axis into 5 parts
+			const divisions = cuboid.divide(5, 1, 1);
+			expect(divisions.length).toBe(5);
+
+			// Check sizes
+			divisions.forEach((div) => {
+				expect(div.getSize().x).toBeCloseTo(2); // 10/5 = 2
+				expect(div.getSize().y).toBeCloseTo(10);
+				expect(div.getSize().z).toBeCloseTo(10);
+			});
+
+			// Check positions - each division should be 2 units wide on x-axis
+			for (let i = 0; i < 5; i++) {
+				expect(divisions[i].point1.x).toBeCloseTo(i * 2);
+				expect(divisions[i].point2.x).toBeCloseTo((i + 1) * 2);
+			}
+		});
+
+		it("should handle uneven divisions correctly", () => {
+			// Create a non-square cuboid
+			const unevenCuboid = new Cuboid(
+				{ x: 0, y: 0, z: 0 },
+				{ x: 10, y: 5, z: 20 },
+			);
+
+			const divisions = unevenCuboid.divide(2, 1, 4);
+			expect(divisions.length).toBe(8); // 2x1x4 = 8
+
+			// Check dimensions of first division
+			expect(divisions[0].getSize()).toEqual({
+				x: 5, // 10/2
+				y: 5, // 5/1
+				z: 5, // 20/4
+			});
+		});
+
+		it("should throw an error if any division parameter is less than 1", () => {
+			expect(() => cuboid.divide(0, 1, 1)).toThrow();
+			expect(() => cuboid.divide(1, 0, 1)).toThrow();
+			expect(() => cuboid.divide(1, 1, 0)).toThrow();
+			expect(() => cuboid.divide(-2, 3, 4)).toThrow();
+		});
+
+		it("should create the correct number of divisions", () => {
+			expect(cuboid.divide(3, 4, 5).length).toBe(3 * 4 * 5);
+			expect(cuboid.divide(10, 1, 1).length).toBe(10);
+			expect(cuboid.divide(1, 10, 1).length).toBe(10);
+			expect(cuboid.divide(1, 1, 10).length).toBe(10);
+		});
+	});
 });
