@@ -56,10 +56,10 @@ export class WorldPath {
 		for (let i = 0; i < this.segments.length; i++) {
 			const segment = this.segments[i];
 			const direction = segment.getDirection(SegmentVertex.POINT_1);
-			const touchedBlocks = segment.getTouchedBlocks(0.1, false);
+			const touchedBlocks = segment.getTouchedBlocks(0, false);
 			for (
-				let j = (i > 0 ? 1 : 0) + blockStartIndex;
-				j < touchedBlocks.length - 1 - blockEndIndex;
+				let j = blockStartIndex;
+				j < touchedBlocks.length - blockEndIndex;
 				j++
 			) {
 				let touchedBlock = touchedBlocks[j];
@@ -74,17 +74,7 @@ export class WorldPath {
 				}
 				let nextTouchedBlock = touchedBlocks[j + 1];
 				if (nextTouchedBlock === undefined && this.segments[i + 1]) {
-					const nextBlocks = this.segments[i + 1].getTouchedBlocks(0.1, false);
-					for (let k = 0; k < nextBlocks.length; k++) {
-						if (
-							Vec3.from(nextBlocks[k])
-								.toBlockLocation()
-								.distance(Vec3.from(touchedBlock).toBlockLocation()) >= 1
-						) {
-							nextTouchedBlock = nextBlocks[k];
-							break;
-						}
-					}
+					nextTouchedBlock = this.segments[i + 1].getPoint1();
 				}
 				let pathDirection = this.vectorToDirection(
 					direction,
@@ -95,7 +85,7 @@ export class WorldPath {
 					.getBlock(touchedBlock)?.typeId;
 				const nextBlockType = world
 					.getDimension("overworld")
-					.getBlock(nextTouchedBlock)?.typeId;
+					.getBlock(nextTouchedBlock ? nextTouchedBlock : touchedBlock)?.typeId;
 				if (
 					((blockType && blockType.includes("slab")) ||
 						(nextBlockType && nextBlockType.includes("slab"))) &&
