@@ -1,5 +1,5 @@
 import { Segment, SegmentVertex } from "./segment";
-import { Vector3 } from "@minecraft/server";
+import { Vector3, world } from "@minecraft/server";
 import { Vec3 } from "@bedrock-oss/bedrock-boost";
 
 export class WorldPath {
@@ -21,11 +21,11 @@ export class WorldPath {
 		this.segments.push(segment);
 	}
 
-	public addPoint(point: Vector3) {
+	public addPoint(point: Vector3, center: boolean = true): void {
 		const lastSegment = this.segments[this.segments.length - 1];
 		const newSegment = new Segment(
 			lastSegment.getPoint2(),
-			Vec3.from(point).toBlockLocation().add(0.5, 0, 0.5),
+			center ? Vec3.from(point).toBlockLocation().add(0.5, 0, 0.5) : point,
 		);
 		this.segments.push(newSegment);
 	}
@@ -50,33 +50,61 @@ export class WorldPath {
 		const excludeVerticalDirections =
 			options?.excludeVerticalDirections || false;
 
+		// Track processed vectors to detect duplicates
+		const processedVectors = new Set<string>();
+
 		for (let i = 0; i < this.segments.length; i++) {
 			const segment = this.segments[i];
 			const direction = segment.getDirection(SegmentVertex.POINT_1);
-			const touchedBlocks = segment.getTouchedBlocks();
+			const touchedBlocks = segment.getTouchedBlocks(0.1, false);
 			for (
-				let j = blockStartIndex;
+				let j = (i > 0 ? 1 : 0) + blockStartIndex;
 				j < touchedBlocks.length - 1 - blockEndIndex;
 				j++
 			) {
 				let touchedBlock = touchedBlocks[j];
-				const nextTouchedBlock = touchedBlocks[j + 1];
-				const distance = Vec3.from(touchedBlock).distance(nextTouchedBlock);
-				if (distance < 1) continue;
+
+				// Create a unique key for the vector
+				const vectorKey = `${touchedBlock.x.toFixed(
+					2,
+				)},${touchedBlock.y.toFixed(2)},${touchedBlock.z.toFixed(2)}`;
+				// Check if the vector is already processed
+				if (processedVectors.has(vectorKey)) {
+					continue; // Skip if already processed
+				}
+				let nextTouchedBlock = touchedBlocks[j + 1];
+				if (nextTouchedBlock === undefined && this.segments[i + 1]) {
+					const nextBlocks = this.segments[i + 1].getTouchedBlocks(0.1, false);
+					for (let k = 0; k < nextBlocks.length; k++) {
+						if (
+							Vec3.from(nextBlocks[k])
+								.toBlockLocation()
+								.distance(Vec3.from(touchedBlock).toBlockLocation()) >= 1
+						) {
+							nextTouchedBlock = nextBlocks[k];
+							break;
+						}
+					}
+				}
 				let pathDirection = this.vectorToDirection(
 					direction,
 					excludeVerticalDirections,
 				);
-				const relativeHeight =
-					nextTouchedBlock.y - Math.floor(nextTouchedBlock.y);
+				const blockType = world
+					.getDimension("overworld")
+					.getBlock(touchedBlock)?.typeId;
+				const nextBlockType = world
+					.getDimension("overworld")
+					.getBlock(nextTouchedBlock)?.typeId;
 				if (
-					relativeHeight > 0.4 &&
-					relativeHeight < 0.6 &&
+					((blockType && blockType.includes("slab")) ||
+						(nextBlockType && nextBlockType.includes("slab"))) &&
 					!excludeHalfDirections
 				) {
 					pathDirection = this.directionToHalfDirection(pathDirection);
 				}
-				touchedBlock = Vec3.from(touchedBlock).add(0.5, 0, 0.5);
+
+				processedVectors.add(vectorKey);
 				callback({
 					vector: touchedBlock,
 					direction: pathDirection,
@@ -124,12 +152,16 @@ export class WorldPath {
 
 	private directionToHalfDirection(direction: PathDirection): PathDirection {
 		switch (direction) {
+			case PathDirection.NORTH:
 			case PathDirection.NORTH_UP:
 				return PathDirection.NORTH_UP_HALF;
+			case PathDirection.SOUTH:
 			case PathDirection.SOUTH_UP:
 				return PathDirection.SOUTH_UP_HALF;
+			case PathDirection.EAST:
 			case PathDirection.EAST_UP:
 				return PathDirection.EAST_UP_HALF;
+			case PathDirection.WEST:
 			case PathDirection.WEST_UP:
 				return PathDirection.WEST_UP_HALF;
 			case PathDirection.NORTH_DOWN:
