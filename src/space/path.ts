@@ -103,6 +103,32 @@ export class WorldPath {
 		}
 	}
 
+	public clone(): WorldPath {
+		// Returns a new WorldPath with the same segments
+		return new WorldPath(this.getSegments());
+	}
+
+	public concat(other: WorldPath): WorldPath {
+		// Returns a new WorldPath by concatenating this and other,
+		// inserting a connecting segment if last and first points differ
+		const segA = this.getSegments();
+		const segB = other.getSegments();
+		const combined = [...segA];
+		if (segA.length > 0 && segB.length > 0) {
+			const lastPt = segA[segA.length - 1].getPoint2();
+			const firstPt = segB[0].getPoint1();
+			if (
+				lastPt.x !== firstPt.x ||
+				lastPt.y !== firstPt.y ||
+				lastPt.z !== firstPt.z
+			) {
+				combined.push(new Segment(lastPt, firstPt));
+			}
+		}
+		combined.push(...segB);
+		return new WorldPath(combined);
+	}
+
 	private vectorToDirection(
 		vector: Vector3,
 		excludeVerticalDirections: boolean,
